@@ -229,31 +229,41 @@ const getAnimesListByLetter = async (letter , page) => {
 };
 
 const searchAnime = async (query) => {
-  const res = await fetch(`${searchUrl}${query}/1/`);
-  const body = await res.text();
-  const promises = [];
-  const $ = cheerio.load(body);
-  $('.portada-box').each(function (index, element) {
-    const $element = $(element);
-    const title = $element.find('h2.portada-title a').attr('title');
-    const synopsis = $element.find('div #ainfo p').text();
-    const type = $element.find('span.eps-num').text();
-    const episodes = $element.find('span.eps-num').first().text().replace(/[^0-9]/g, "");
-    const id = $element.find('a.let-link').attr('href').split('/')[3];
-    const poster = $element.find('a').children('img').attr('src');
-    promises.push(animeContentHandler(id).then(extra => ({
-      title: title,
-      id: id,
-      poster: poster,
-      type: type,
-      synopsis: synopsis,
-      state: extra[0] ? extra[0].state : 'unknown',
-      episodes: episodes || 'unknown',
-      episodeList: extra[0] ? extra[0].episodeList : null
-    })))
+  const response = await fetch(`https://jkanime.net/buscar/${query}`, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+    },
   });
-  return await Promise.all(promises)
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const results = [];
+
+  $('.anime__item').each((index, element) => {
+    const $el = $(element);
+    const title = $el.find('.anime__item__text h5 a').text().trim();
+    const url = $el.find('.anime__item__text h5 a').attr('href');
+    const id = url?.split('/')[3] || null;
+    const poster = $el.find('.anime__item__pic').attr('data-setbg');
+    const type = $el.find('.anime__item__text li.anime').text().trim();
+    const state = $el.find('.anime__item__text li').first().text().trim();
+
+    if (title && url) {
+      results.push({
+        title,
+        id,
+        url,
+        poster,
+        type,
+        state,
+      });
+    }
+  });
+
+  return results;
 };
+
 
 const animeContentHandler = async(id) => {
   const res = await fetch(`${url}/${id}`);
